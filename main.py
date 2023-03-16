@@ -3,15 +3,21 @@ from tkinter import filedialog as fd
 import tkinter as tk
 import tkinter.messagebox
 import matplotlib.pyplot as plt
-from datetime import timedelta
-
-
-class Dataset:
-    def __init__(self, data):
-        self.data = data
+import plotly.graph_objs as go
+import plotly.express as px
+import dash
+import numpy as np
+import dash_core_components as dcc
+import dash_html_components as html
+from dash.dependencies import Input, Output
 
 
 def open_file():
+    df = pd.read_excel("input/input.xlsx", sheet_name="Detail", index_col=0)
+    return df
+
+
+def open_file_gui():
     """Uses a GUI to select a file then returns the content of this file as a dataframe"""
     filename = fd.askopenfilename(title="Select a source file", filetypes=[("Excel Files", "*.xlsx")])
     dataframe1 = pd.read_excel(filename, sheet_name="Detail", index_col=0)
@@ -35,17 +41,8 @@ def drop_unlikely_sah(df_in):
 
 
 def calc_time_to_scan(df):
-    # df['Arrival_Date_Time'] = df['Arrival_Date_Time'].astype('string')
-    # df['ExamStartDateTime'] = df['ExamStartDateTime'].astype('string')
-
-    # arrival = pd.to_datetime(df['Arrival_Date_Time'], format='%Y/%m/%d %H:%M:%S')
-    # scan = pd.to_datetime(df['ExamStartDateTime'], format='%Y/%m/%d %H:%M:%S')
-
     arrival = pd.to_datetime(df['Arrival_Date_Time'])
     scan = pd.to_datetime(df['ExamStartDateTime'])
-
-    # arrival = pd.to_datetime(df['Arrival_Date_Time'], dayfirst=True)
-    # scan = pd.to_datetime(df['ExamStartDateTime'], dayfirst=True)
 
     df['Time to Scan'] = scan - arrival
 
@@ -60,16 +57,18 @@ def export(df):
     tk.messagebox.showinfo('Save Complete', 'Output saved!')
 
 
-data = calc_time_to_scan(
-    drop_unlikely_sah(
-        select_likely_sah(
-            open_file(
+def create_dataset():
+    data = calc_time_to_scan(
+        drop_unlikely_sah(
+            select_likely_sah(
+                open_file(
 
-            ))))
+                ))))
+    return data
 
-# quick run
 
-df = data
+# read data from Excel file
+df = create_dataset()
 
 # Convert the 'Arrival_Date_Time' column to datetime type if it's not already.
 df['Arrival_Date_Time'] = pd.to_datetime(df['Arrival_Date_Time'])
@@ -120,6 +119,3 @@ plt.legend()
 
 # Show the plot.
 plt.show()
-
-
-# export(data)
