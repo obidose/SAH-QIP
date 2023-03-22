@@ -1,3 +1,4 @@
+import html as html
 import pandas as pd
 from tkinter import filedialog as fd
 import tkinter as tk
@@ -7,9 +8,10 @@ import plotly.graph_objs as go
 import plotly.express as px
 import dash
 import numpy as np
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
+from dash import html
 from dash.dependencies import Input, Output
+from dash import Dash, html, dcc
 
 
 def open_file():
@@ -41,6 +43,7 @@ def drop_unlikely_sah(df_in):
 
 
 def calc_time_to_scan(df):
+    """Works out time to CT scan from hour of arrival in a new column. Also excludes outliers (>24hr)"""
     arrival = pd.to_datetime(df['Arrival_Date_Time'])
     scan = pd.to_datetime(df['ExamStartDateTime'])
 
@@ -67,55 +70,75 @@ def create_dataset():
     return data
 
 
+def calc_rolling_mean(df):
+    # Convert the 'Time to Scan' column to timedelta64[ns] in seconds
+    df['Time to Scan'] = pd.to_timedelta(df['Time to Scan'])
+    df['Time to Scan'] = df['Time to Scan'].dt.total_seconds()
+
+    # Convert the 'Time to Scan' column to a numeric data type.
+    df['Time to Scan'] = pd.to_numeric(df['Time to Scan'], errors='coerce')
+
+    # Filter out rows where 'Time to Scan' is greater than 24 hours.
+    df = df[df['Time to Scan'] <= 86400]
+
+    # Resample the data to monthly intervals and calculate the mean of 'Time to Scan' for each month.
+    monthly_mean = df.resample('2W', on='Arrival_Date_Time')['Time to Scan'].mean()
+
+    # Calculate the rolling mean of 'Time to Scan' with a window of 4 months.
+    rolling_mean = monthly_mean.rolling(window=2).mean()
+
+    # Convert the rolling mean values to hours as a decimal.
+    rmh = rolling_mean / 3600
+
+    return rmh
+
+
 # read data from Excel file
 df = create_dataset()
+rolling_mean_hours = calc_rolling_mean(df)
 
-# Convert the 'Arrival_Date_Time' column to datetime type if it's not already.
-df['Arrival_Date_Time'] = pd.to_datetime(df['Arrival_Date_Time'])
+# Dash
 
-# Convert the 'Time to Scan' column to timedelta64[ns].
-df['Time to Scan'] = pd.to_timedelta(df['Time to Scan'])
+app = Dash(__name__)
 
-# Convert the 'Time to Scan' column to seconds.
-df['Time to Scan'] = df['Time to Scan'].dt.total_seconds()
+colors = {
+    'background': '#111111',
+    'text': '#7FDBFF'
+}
 
-# Convert the 'Time to Scan' column to a numeric data type.
-df['Time to Scan'] = pd.to_numeric(df['Time to Scan'], errors='coerce')
+fig = px.line(x=rolling_mean_hours.index, y=rolling_mean_hours, title="How long do potential SAH patients wait from "
+                                                                      "arrival to CT "
+                                                                      "scan?",).update_layout(
+    xaxis_title="Date", yaxis_title="average time to scan (hours)"
+)
 
-# Filter out rows where 'Time to Scan' is greater than 24 hours.
-df = df[df['Time to Scan'] <= 86400]
+intervention_date = pd.to_datetime('2023-03-16')
+fig.add_shape(type='line',
+              x0=intervention_date, y0=0, x1=intervention_date, y1=1, yref='paper',
+              line=dict(color='red', dash='dash'))
+fig.add_annotation(x=intervention_date, y=max(rolling_mean_hours),
+                   text='Intervention 1',
+                   showarrow=True,
+                   arrowhead=1,
+                   arrowcolor=colors['text'],
+                   arrowwidth=2)
+fig.update_layout(
+    plot_bgcolor=colors['background'],
+    paper_bgcolor=colors['background'],
+    font_color=colors['text'])
 
-# Resample the data to monthly intervals and calculate the mean of 'Time to Scan' for each month.
-monthly_mean = df.resample('M', on='Arrival_Date_Time')['Time to Scan'].mean()
+app.layout = html.Div(children=[
+    html.H1(children='SAH QIP Dashboard'),
 
-# Calculate the rolling mean of 'Time to Scan' with a window of 4 months.
-rolling_mean = monthly_mean.rolling(window=4).mean()
+    html.Div(children='''
+        SAH Dashboard: Interactive dashboard for the SAH QIP project.
+    '''),
 
-# Convert the rolling mean values to hours as a decimal.
-rolling_mean_hours = rolling_mean / 3600
+    dcc.Graph(
+        id='Moving average of time to CT from arrival',
+        figure=fig
+    )
+])
 
-# Plot the moving average of 'Time to Scan' each month.
-plt.plot(rolling_mean_hours, label='Moving Average')
-
-# Plot the number of scans within 2 hours.
-num_scans_2h = df[df['Time to Scan'] <= 7200].resample('M', on='Arrival_Date_Time')['Time to Scan'].count()
-plt.plot(num_scans_2h, label='Scans within 2 Hours')
-
-# Plot the number of scans within 4 hours.
-num_scans_4h = df[df['Time to Scan'] <= 14400].resample('M', on='Arrival_Date_Time')['Time to Scan'].count()
-plt.plot(num_scans_4h, label='Scans within 4 Hours')
-
-# Plot the number of scans within 6 hours.
-num_scans_6h = df[df['Time to Scan'] <= 21600].resample('M', on='Arrival_Date_Time')['Time to Scan'].count()
-plt.plot(num_scans_6h, label='Scans within 6 Hours')
-
-# Set the plot title and axis labels.
-plt.title('Moving Average of Time to Scan Each Month')
-plt.xlabel('Month')
-plt.ylabel('Number of Scans / Time to Scan (in hours)')
-
-# Show the legend.
-plt.legend()
-
-# Show the plot.
-plt.show()
+if __name__ == '__main__':
+    app.run_server(debug=True)
