@@ -3,14 +3,8 @@ import pandas as pd
 from tkinter import filedialog as fd
 import tkinter as tk
 import tkinter.messagebox
-import matplotlib.pyplot as plt
 import plotly.graph_objs as go
 import plotly.express as px
-import dash
-import numpy as np
-from dash import dcc
-from dash import html
-from dash.dependencies import Input, Output
 from dash import Dash, html, dcc
 
 
@@ -61,16 +55,17 @@ def export(df):
 
 
 def create_dataset():
-    data = calc_time_to_scan(
-        drop_unlikely_sah(
-            select_likely_sah(
-                open_file(
+    data = calc_length_of_ip_stay(
+        calc_time_to_scan(
+            drop_unlikely_sah(
+                select_likely_sah(
+                    open_file(
 
-                ))))
+                    )))))
     return data
 
 
-def calc_rolling_mean(df):
+def calc_rolling_mean_hours(df):
     # Convert the 'Time to Scan' column to timedelta64[ns] in seconds
     df['Time to Scan'] = pd.to_timedelta(df['Time to Scan'])
     df['Time to Scan'] = df['Time to Scan'].dt.total_seconds()
@@ -81,21 +76,32 @@ def calc_rolling_mean(df):
     # Filter out rows where 'Time to Scan' is greater than 24 hours.
     df = df[df['Time to Scan'] <= 86400]
 
-    # Resample the data to monthly intervals and calculate the mean of 'Time to Scan' for each month.
-    monthly_mean = df.resample('2W', on='Arrival_Date_Time')['Time to Scan'].mean()
+    # Resample the data to 2 week intervals and calculate the mean of 'Time to Scan' for each fortnight.
+    fortnight_mean = df.resample('2W', on='Arrival_Date_Time')['Time to Scan'].mean()
 
-    # Calculate the rolling mean of 'Time to Scan' with a window of 4 months.
-    rolling_mean = monthly_mean.rolling(window=2).mean()
+    # Calculate the rolling mean of 'Time to Scan' with a window of 2 weeks.
+    rolling_mean = fortnight_mean.rolling(window=1).mean()
 
     # Convert the rolling mean values to hours as a decimal.
     rmh = rolling_mean / 3600
 
+    # # Pending - keep all in df, will need to re-index later graphing
+    #     df['Rolling Mean Hours'] = rmh
+
     return rmh
+
+
+def calc_length_of_ip_stay(df):
+    arrival = pd.to_datetime(df['Arrival_Date_Time'])
+    left_hospital = pd.to_datetime(df['IP_Discharge_Date_Time'])
+
+    df['Length_of_IP_Stay'] = left_hospital - arrival
+
+    return df
 
 
 # read data from Excel file
 df = create_dataset()
-rolling_mean_hours = calc_rolling_mean(df)
 
 # Dash
 
@@ -106,13 +112,15 @@ colors = {
     'text': '#7FDBFF'
 }
 
-fig = px.line(x=rolling_mean_hours.index, y=rolling_mean_hours, title="How long do potential SAH patients wait from "
-                                                                      "arrival to CT "
-                                                                      "scan?",).update_layout(
+intervention_date = pd.to_datetime('2023-03-16')
+rolling_mean_hours = calc_rolling_mean_hours(df)
+fig = px.line(x=rolling_mean_hours.index,
+              y=rolling_mean_hours,
+              title="How long do potential SAH patients wait from "
+                    "arrival to CT scan? (2 week rolling average)", ).update_layout(
     xaxis_title="Date", yaxis_title="average time to scan (hours)"
 )
 
-intervention_date = pd.to_datetime('2023-03-16')
 fig.add_shape(type='line',
               x0=intervention_date, y0=0, x1=intervention_date, y1=1, yref='paper',
               line=dict(color='red', dash='dash'))
@@ -125,7 +133,34 @@ fig.add_annotation(x=intervention_date, y=max(rolling_mean_hours),
 fig.update_layout(
     plot_bgcolor=colors['background'],
     paper_bgcolor=colors['background'],
-    font_color=colors['text'])
+    font_color=colors['text'],
+    yaxis=dict(range=[0, max(rolling_mean_hours)], gridcolor='grey', zerolinecolor='grey'),
+    xaxis=dict(gridcolor='grey', zerolinecolor='grey')
+)
+
+fig2 = px.line(x=df['Arrival_Date_Time'],
+               y=df['LOS'].rolling(window=14).mean(),
+               title="Sudden onset, severe headache patients - Length of ED stay (14 Day rolling average)"
+               ).update_layout(
+    xaxis_title="Date", yaxis_title="Hours"
+)
+
+fig2.add_shape(type='line',
+               x0=intervention_date, y0=0, x1=intervention_date, y1=1, yref='paper',
+               line=dict(color='red', dash='dash'))
+fig2.add_annotation(x=intervention_date, y=30,
+                    text='Intervention 1',
+                    showarrow=True,
+                    arrowhead=1,
+                    arrowcolor=colors['text'],
+                    arrowwidth=2)
+fig2.update_layout(
+    plot_bgcolor=colors['background'],
+    paper_bgcolor=colors['background'],
+    font_color=colors['text'],
+    yaxis=dict(range=[0, 30], gridcolor='grey', zerolinecolor='grey'),
+    xaxis=dict(gridcolor='grey', zerolinecolor='grey')
+)
 
 app.layout = html.Div(children=[
     html.H1(children='SAH QIP Dashboard'),
@@ -137,6 +172,11 @@ app.layout = html.Div(children=[
     dcc.Graph(
         id='Moving average of time to CT from arrival',
         figure=fig
+    ),
+
+    dcc.Graph(
+        id='Length of Stay',
+        figure=fig2
     )
 ])
 
