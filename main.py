@@ -112,6 +112,8 @@ colors = {
     'text': '#7FDBFF'
 }
 
+# Fig - Time to CT scan rolling average
+
 intervention_date = pd.to_datetime('2023-03-16')
 rolling_mean_hours = calc_rolling_mean_hours(df)
 fig = px.line(x=rolling_mean_hours.index,
@@ -123,7 +125,7 @@ fig = px.line(x=rolling_mean_hours.index,
 
 fig.add_shape(type='line',
               x0=intervention_date, y0=0, x1=intervention_date, y1=1, yref='paper',
-              line=dict(color='red', dash='dash'))
+              line=dict(color='teal', dash='dash'))
 fig.add_annotation(x=intervention_date, y=max(rolling_mean_hours),
                    text='Intervention 1',
                    showarrow=True,
@@ -138,6 +140,8 @@ fig.update_layout(
     xaxis=dict(gridcolor='grey', zerolinecolor='grey')
 )
 
+# fig2 - Length of ED stay
+
 fig2 = px.line(x=df['Arrival_Date_Time'],
                y=df['LOS'].rolling(window=14).mean(),
                title="Sudden onset, severe headache patients - Length of ED stay (14 Day rolling average)"
@@ -147,7 +151,7 @@ fig2 = px.line(x=df['Arrival_Date_Time'],
 
 fig2.add_shape(type='line',
                x0=intervention_date, y0=0, x1=intervention_date, y1=1, yref='paper',
-               line=dict(color='red', dash='dash'))
+               line=dict(color='teal', dash='dash'))
 fig2.add_annotation(x=intervention_date, y=30,
                     text='Intervention 1',
                     showarrow=True,
@@ -159,6 +163,36 @@ fig2.update_layout(
     paper_bgcolor=colors['background'],
     font_color=colors['text'],
     yaxis=dict(range=[0, 30], gridcolor='grey', zerolinecolor='grey'),
+    xaxis=dict(gridcolor='grey', zerolinecolor='grey')
+)
+
+# Fig3- Thunderclap patients admitted to med per month
+
+med_patients = df[df['Referral'] == 'ED Referral to Acute Medicine']
+med_patients_by_week = med_patients.groupby(pd.Grouper(key='Arrival_Date_Time', freq='MS')).size().reset_index(
+    name='count')
+
+fig3 = px.bar(med_patients_by_week,
+              x='Arrival_Date_Time',
+              y='count',
+              title="How many patients with thunderclap headache are admitted to medicine per month?", ).update_layout(
+    xaxis_title="Date", yaxis_title="Number of patients admitted"
+)
+
+fig3.add_shape(type='line',
+               x0=intervention_date, y0=0, x1=intervention_date, y1=1, yref='paper',
+               line=dict(color='teal', dash='dash'))
+fig3.add_annotation(x=intervention_date, y=max(rolling_mean_hours),
+                    text='Intervention 1',
+                    showarrow=True,
+                    arrowhead=1,
+                    arrowcolor=colors['text'],
+                    arrowwidth=2)
+fig3.update_layout(
+    plot_bgcolor=colors['background'],
+    paper_bgcolor=colors['background'],
+    font_color=colors['text'],
+    yaxis=dict(range=[0, max(rolling_mean_hours)], gridcolor='grey', zerolinecolor='grey'),
     xaxis=dict(gridcolor='grey', zerolinecolor='grey')
 )
 
@@ -177,6 +211,11 @@ app.layout = html.Div(children=[
     dcc.Graph(
         id='Length of Stay',
         figure=fig2
+    ),
+
+    dcc.Graph(
+        id='Number admitted',
+        figure=fig3
     )
 ])
 
