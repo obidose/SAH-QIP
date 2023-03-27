@@ -1,0 +1,36 @@
+Source = Sql.Database("PURPLE2", "CernerStaging", [
+    Query="Select distinct
+        G.ENCNTR_ID#(lf),
+        D.Arrival_Date_Time#(lf),
+        Chief_Complaint_Mnemonic#(lf),
+        D.Depart_Date_Time#(lf),
+        DATEDIFF(minute,D.Arrival_Date_Time,D.Depart_Date_Time)/60. LOS#(lf),
+        CASE WHEN G.apc_AccountNumber is null then null else 'Y' end as Admitted#(lf),
+        WI.DischargeDateTime IP_Discharge_Date_Time#(lf),
+        G.Discharge_Destination_Mnemonic#(lf),
+        COALESCE(G.Referred_To_Service_Code_Mnemonic collate database_default, P.AssignedPersonnel collate database_default) Referral#(lf),
+        I.Diag1_String ED_Diagnosis#(lf),
+        AllDiagnosis IP_Diagnosis_All_ICD10#(lf),
+        LuD.DiagName3 IP_PrimaryDiagnosis#(lf),
+        R.ExamName#(lf),
+        R.OriginalOrderDateTime#(lf),
+        R.ExamStartDateTime#(lf),
+        CASE WHEN EDLP.AcctNumber is not null then 'Y' end as 'ED_Lumbar_Puncture'#(lf),
+        CASE WHEN WI.AllProcedures like '%A559%' then 'Y' end as 'IP_Lumbar_Puncture'#(lf),
+        M.Gender_From_LuMpi Gender#(lf),
+        M.Patient_Ethnic_Meditech Ethnicity#(lf),
+        ClinicalIndication#(lf)
+    FROM
+        CernerStaging.dbo.AccidentEmergency_ECDS_General G
+        left join CernerStaging.dbo.AccidentEmergency_ECDS_Master M on M.ENCNTR_ID = G.ENCNTR_ID
+        left join CernerStaging.dbo.AccidentEmergency_ECDS_Date_Times D on D.ENCNTR_ID = G.ENCNTR_ID
+        left join CernerStaging.dbo.AccidentEmergency_ECDS_Inv_Treat_Diag I on I.AcctNumber = M.AttendanceIdentifier collate database_default
+        left join (Select * FROM CernerStaging.BI.ED_AssignedPersonnel Where AssignedPersonnel like 'ED%') P on P.ENCNTR_ID = G.ENCNTR_ID
+        left join (Select distinct Encntr_ID#, DischargeDateTime, AllProcedures from CernerStaging.dbo.WatchListInpatient) WI on WI.Encntr_ID# = G.ENCNTR_ID
+        left join CernerStaging.dbo.CN_EDLumbarPuncture EDLP on EDLP.Encntr_ID# = G.ENCNTR_ID
+        left join CernerStaging.dbo.CN_IP_Lumbar_Puncture IPIP on IPIP.Encntr_ID# = G.ENCNTR_ID
+        left join CernerStaging.dbo.CN_IP_Diagnosis LuD on LuD.Encntr_ID# = G.ENCNTR_ID
+        left join CernerStaging.dbo.CN_Exam R on R.Encntr_ID# = G.ENCNTR_ID
+    WHERE FLOOR(DATEDIFF(day,M.Patient_Birth_Date,G.RegistrationDate)/365.) > 16
+    "
+])```
