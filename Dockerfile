@@ -1,13 +1,16 @@
-FROM python:3.9-slim
+FROM python:3.9
 
 WORKDIR /app
 
-COPY requirements.txt .
+# Clone the GitHub repository
+RUN git clone https://github.com/obidose/SAH-QIP .
 
+# Install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .
-
+# Expose the desired port
 EXPOSE 8050
 
+# Start the application
 CMD ["python", "app.py"]
