@@ -8,7 +8,7 @@ RUN git clone https://github.com/obidose/SAH-QIP .
 # Install dependencies
 COPY requirements.txt .
 COPY input/input.xlsx input/
-COPY assets/style.css
+COPY assets/style.css assets/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expose the desired port
