@@ -1,7 +1,4 @@
 import pandas as pd
-from tkinter import filedialog as fd
-import tkinter as tk
-import tkinter.messagebox
 import plotly.express as px
 from dash import Dash, html, dcc
 from datetime import datetime
@@ -10,13 +7,6 @@ from datetime import datetime
 def open_file():
     df = pd.read_excel("input/input.xlsx", sheet_name="Detail", index_col=0)
     return df
-
-
-def open_file_gui():
-    """Uses a GUI to select a file then returns the content of this file as a dataframe"""
-    filename = fd.askopenfilename(title="Select a source file", filetypes=[("Excel Files", "*.xlsx")])
-    dataframe1 = pd.read_excel(filename, sheet_name="Detail", index_col=0)
-    return dataframe1
 
 
 def select_likely_sah(df_in):
