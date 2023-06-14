@@ -12,7 +12,7 @@ def open_file():
 def select_likely_sah(df_in):
     """Takes a dataframe, filters results containing CT indication terms likely to suggest ?aneurysmal SAH"""
     df_in['ClinicalIndication'] = df_in['ClinicalIndication'].values.astype(str)
-    sah_terms = 'SAH|sudden|subarach|worst|thunderclap|acute|severe|tumour'
+    sah_terms = 'SAH|sudden|subarach|worst|thunderclap|acute|severe'
     df_out = df_in[df_in["ClinicalIndication"].str.contains(sah_terms, case=False, na=False)]
     return df_out
 
@@ -20,7 +20,7 @@ def select_likely_sah(df_in):
 def drop_unlikely_sah(df_in):
     """Takes a dataframe, filters results containing CT indication terms likely to suggest ?aneurysmal SAH"""
     df_in['ClinicalIndication'] = df_in['ClinicalIndication'].values.astype(str)
-    sah_terms = 'week|52|12|month|assault|trauma|injury|shunt|RTC|fall|fell'
+    sah_terms = 'week|52|12|month|assault|trauma|injury|shunt|RTC|fall|fell|tumour'
     df_out = df_in[df_in["ClinicalIndication"].str.contains(sah_terms, case=False, na=False) == False]
     return df_out
 
@@ -35,12 +35,12 @@ def calc_time_to_scan(df):
     return df
 
 
-def export(df):
-    """Opens a window to select a save directory. Takes a dataframe and saves it to the selected directory as
-    output.xlsx """
-    df['Time to Scan'] = df['Time to Scan'].astype('string')
-    df.to_excel(fd.askdirectory(title="Select Save Directory") + "/" + "output.xlsx")
-    tk.messagebox.showinfo('Save Complete', 'Output saved!')
+# def export(df):
+#     """Opens a window to select a save directory. Takes a dataframe and saves it to the selected directory as
+#     output.xlsx """
+#     df['Time to Scan'] = df['Time to Scan'].astype('string')
+#     df.to_excel(fd.askdirectory(title="Select Save Directory") + "/" + "output.xlsx")
+#     tk.messagebox.showinfo('Save Complete', 'Output saved!')
 
 
 def create_dataset():
